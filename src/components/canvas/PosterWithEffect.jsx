@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useMemo } from 'react'
+import { useRef, useMemo, useEffect } from 'react'
 import { useFrame, useThree, createPortal } from '@react-three/fiber'
 import { useFBO, OrthographicCamera } from '@react-three/drei'
 import * as THREE from 'three'
@@ -11,12 +11,13 @@ const vertexShader = `
   varying vec2 vUv;
   void main() {
     vUv = uv;
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    // Render as fullscreen quad in clip space, bypassing perspective
+    gl_Position = vec4(position.xy, 0.0, 1.0);
   }
 `
 
 const fragmentShader = `
-  uniform float uTime;
+  uniform float uSeed;
   uniform vec2 uResolution;
   uniform sampler2D uPosterTexture;
   uniform sampler2D uImageTexture;
@@ -30,48 +31,19 @@ const fragmentShader = `
   uniform float uTransition;
   uniform vec2 uMouse;
   uniform bool uMouseControl;
-  uniform float uHalftoneSize;
-  uniform float uImageExposure;
-  uniform float uImageContrast;
-
+  uniform vec2 uImageAspect;
   varying vec2 vUv;
 
-  // Exposure and contrast adjustment
-  vec3 adjustExposureContrast(vec3 color, float exposure, float contrast) {
-    // Exposure (multiply)
-    color *= pow(2.0, exposure);
-    // Contrast (pivot around 0.5)
-    color = (color - 0.5) * contrast + 0.5;
-    return clamp(color, 0.0, 1.0);
-  }
-
-  // Bayer dithering matrix
-  float Bayer2(vec2 a) {
-    a = floor(a);
-    return fract(a.x / 2.0 + a.y * a.y * 0.75);
-  }
-
-  #define Bayer4(a)   (Bayer2 (0.5 * (a)) * 0.25 + Bayer2(a))
-  #define Bayer8(a)   (Bayer4 (0.5 * (a)) * 0.25 + Bayer2(a))
-  #define Bayer16(a)  (Bayer8 (0.5 * (a)) * 0.25 + Bayer2(a))
-  #define Bayer32(a)  (Bayer16(0.5 * (a)) * 0.25 + Bayer2(a))
-  #define Bayer64(a)  (Bayer32(0.5 * (a)) * 0.25 + Bayer2(a))
-
-  // Halftone effect with Bayer dithering
-  vec3 halftone(sampler2D tex, vec2 uv, float scale, float exposure, float contrast) {
-    vec2 fragCoord = uv * uResolution;
-
-    // Bayer dithering threshold
-    float dithering = Bayer64(fragCoord * scale) - 0.5;
-
-    // Sample and adjust image
-    vec3 color = texture2D(tex, uv).rgb;
-    color = adjustExposureContrast(color, exposure, contrast);
-    float brightness = dot(color, vec3(0.299, 0.587, 0.114));
-
-    // Apply dithering threshold
-    float result = step(0.5, brightness + dithering);
-    return vec3(result);
+  // Cover UV - maintain aspect ratio and fill
+  vec2 coverUV(vec2 uv, vec2 inputAspect, vec2 outputAspect) {
+    vec2 ratio = vec2(
+      min((outputAspect.x / outputAspect.y) / (inputAspect.x / inputAspect.y), 1.0),
+      min((outputAspect.y / outputAspect.x) / (inputAspect.y / inputAspect.x), 1.0)
+    );
+    return vec2(
+      uv.x * ratio.x + (1.0 - ratio.x) * 0.5,
+      uv.y * ratio.y + (1.0 - ratio.y) * 0.5
+    );
   }
 
   // Simplex 2D noise
@@ -119,11 +91,11 @@ const fragmentShader = `
   }
 
   // Domain warping for organic blob shapes
-  float warpedNoise(vec2 p, float time) {
-    // First warp layer
+  float warpedNoise(vec2 p, float seed) {
+    // First warp layer - use seed as offset
     vec2 q = vec2(
-      fbm(p + vec2(0.0, 0.0) + 0.05 * time),
-      fbm(p + vec2(5.2, 1.3) + 0.05 * time)
+      fbm(p + vec2(0.0, 0.0) + seed),
+      fbm(p + vec2(5.2, 1.3) + seed)
     );
 
     // Second warp layer with controlled intensity
@@ -141,7 +113,7 @@ const fragmentShader = `
     // Scale for large organic blobs
     vec2 p = uv * aspect * uNoiseScale;
 
-    float n = warpedNoise(p, uTime);
+    float n = warpedNoise(p, uSeed);
 
     // Use mouse position for transition if enabled, otherwise use slider value
     float transition = uMouseControl ? uMouse.y : uTransition;
@@ -156,8 +128,8 @@ const fragmentShader = `
     float edgeDist = abs(n - adjustedThreshold);
 
     // Add high-freq noise for burnt/rough edge texture
-    float burntNoise = snoise(p * 15.0 + uTime * 0.5) * 0.5 + 0.5;
-    float burntNoise2 = snoise(p * 30.0 - uTime * 0.3) * 0.5 + 0.5;
+    float burntNoise = snoise(p * 15.0 + uSeed * 0.5) * 0.5 + 0.5;
+    float burntNoise2 = snoise(p * 30.0 - uSeed * 0.3) * 0.5 + 0.5;
     float combinedBurnt = burntNoise * burntNoise2;
 
     // Stroke width varies based on burnt noise
@@ -173,11 +145,11 @@ const fragmentShader = `
     // Sample textures
     vec4 posterColor = texture2D(uPosterTexture, uv);
 
-    // Apply halftone effect to uploaded image
+    // Sample uploaded image or use mask color
     vec4 maskLayerColor;
     if (uHasImage) {
-      vec3 halftoneImg = halftone(uImageTexture, uv, uHalftoneSize, uImageExposure, uImageContrast);
-      maskLayerColor = vec4(halftoneImg, 1.0);
+      vec2 imageUV = coverUV(uv, uImageAspect, uResolution);
+      maskLayerColor = texture2D(uImageTexture, imageUV);
     } else {
       maskLayerColor = vec4(uMaskColor, 1.0);
     }
@@ -195,7 +167,27 @@ const fragmentShader = `
 const PosterWithEffect = () => {
   const meshRef = useRef()
   const { viewport, size, gl, camera } = useThree()
-  const { blobEffect, colors, aspectRatio } = usePosterStore()
+  const { blobEffect, colors, aspectRatio, setBlobEffect } = usePosterStore()
+
+  // Handle click to pause/unpause transition
+  const handleClick = () => {
+    if (blobEffect.mouseControl) {
+      setBlobEffect({ transitionPaused: !blobEffect.transitionPaused })
+    }
+  }
+
+  // Load default image on mount
+  useEffect(() => {
+    if (blobEffect.imageUrl && !blobEffect.imageTexture) {
+      const img = new Image()
+      img.onload = () => {
+        const texture = new THREE.Texture(img)
+        texture.needsUpdate = true
+        setBlobEffect({ imageTexture: texture })
+      }
+      img.src = blobEffect.imageUrl
+    }
+  }, [])
 
   // Create a scene for the poster
   const portalScene = useMemo(() => new THREE.Scene(), [])
@@ -214,7 +206,7 @@ const PosterWithEffect = () => {
   })
 
   const uniforms = useMemo(() => ({
-    uTime: { value: 0 },
+    uSeed: { value: 0 },
     uResolution: { value: new THREE.Vector2(size.width, size.height) },
     uPosterTexture: { value: null },
     uImageTexture: { value: null },
@@ -228,17 +220,19 @@ const PosterWithEffect = () => {
     uTransition: { value: 0.74 },
     uMouse: { value: new THREE.Vector2(0.5, 0.5) },
     uMouseControl: { value: false },
-    uHalftoneSize: { value: 0.25 },
-    uImageExposure: { value: 0.0 },
-    uImageContrast: { value: 1.0 },
+    uImageAspect: { value: new THREE.Vector2(1, 1) },
   }), [])
 
   useFrame((state, delta) => {
     if (!blobEffect.enabled) return
 
-    // Update portal camera to match main camera
+    // Update portal camera to fully match main camera (including projection)
     portalCamera.position.copy(camera.position)
     portalCamera.rotation.copy(camera.rotation)
+    portalCamera.fov = camera.fov
+    portalCamera.aspect = camera.aspect
+    portalCamera.near = camera.near
+    portalCamera.far = camera.far
     portalCamera.updateProjectionMatrix()
 
     // Render poster to texture
@@ -249,7 +243,7 @@ const PosterWithEffect = () => {
     // Update shader uniforms
     if (meshRef.current) {
       const mat = meshRef.current.material
-      mat.uniforms.uTime.value += delta * (blobEffect.speed ?? 0.5)
+      mat.uniforms.uSeed.value = blobEffect.seed ?? 0
       mat.uniforms.uResolution.value.set(size.width, size.height)
       mat.uniforms.uPosterTexture.value = posterTarget.texture
       mat.uniforms.uThreshold.value = blobEffect.threshold ?? 0.0
@@ -259,8 +253,8 @@ const PosterWithEffect = () => {
       mat.uniforms.uTransition.value = blobEffect.transition ?? 0.5
       mat.uniforms.uMouseControl.value = blobEffect.mouseControl ?? false
 
-      // Update mouse position (normalized 0-1)
-      if (blobEffect.mouseControl) {
+      // Update mouse position (normalized 0-1) only if not paused
+      if (blobEffect.mouseControl && !blobEffect.transitionPaused) {
         const pointer = state.pointer
         // Convert from -1,1 to 0,1 range
         mat.uniforms.uMouse.value.set(
@@ -272,9 +266,11 @@ const PosterWithEffect = () => {
       if (blobEffect.imageTexture) {
         mat.uniforms.uImageTexture.value = blobEffect.imageTexture
         mat.uniforms.uHasImage.value = true
-        mat.uniforms.uImageExposure.value = blobEffect.imageExposure ?? 0.0
-        mat.uniforms.uImageContrast.value = blobEffect.imageContrast ?? 1.0
-        mat.uniforms.uHalftoneSize.value = blobEffect.pixelSize ?? 0.25
+        // Set image aspect ratio for cover effect
+        const img = blobEffect.imageTexture.image
+        if (img) {
+          mat.uniforms.uImageAspect.value.set(img.width, img.height)
+        }
       } else {
         mat.uniforms.uHasImage.value = false
       }
@@ -308,14 +304,16 @@ const PosterWithEffect = () => {
         <meshBasicMaterial color={colors.background} />
       </mesh>
 
-      {/* Blob effect shader overlay */}
-      <mesh ref={meshRef} position={[0, 0, 0.5]}>
-        <planeGeometry args={[viewport.width, viewport.height]} />
+      {/* Blob effect shader overlay - fullscreen quad in clip space */}
+      <mesh ref={meshRef} frustumCulled={false} onClick={handleClick}>
+        <planeGeometry args={[2, 2]} />
         <shaderMaterial
           vertexShader={vertexShader}
           fragmentShader={fragmentShader}
           uniforms={uniforms}
           transparent={true}
+          depthTest={false}
+          depthWrite={false}
         />
       </mesh>
     </>

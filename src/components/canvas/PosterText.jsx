@@ -1,15 +1,116 @@
 'use client'
 
-import { useRef, useMemo, useState, useCallback } from 'react'
+import { useRef, useMemo, useState, useCallback, useEffect } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Text } from '@react-three/drei'
 import usePosterStore from '@/stores/usePosterStore'
 
-// Main poster text component - renders all text with auto-wrap and looping scroll
+// ============================================
+// SCALE-TO-FIT MODE COMPONENTS
+// ============================================
+
+// Single line component that scales to fit width
+const JustifiedLine = ({ text, font, fontSize, letterSpacing, color, maxWidth, y, onMeasured, index }) => {
+  const textRef = useRef()
+  const [scale, setScale] = useState(1)
+
+  const handleSync = useCallback((troika) => {
+    if (troika.textRenderInfo) {
+      const textWidth = troika.textRenderInfo.blockBounds[2] - troika.textRenderInfo.blockBounds[0]
+      const textHeight = troika.textRenderInfo.blockBounds[3] - troika.textRenderInfo.blockBounds[1]
+      if (textWidth > 0) {
+        const newScale = maxWidth / textWidth
+        setScale(newScale)
+      }
+      if (onMeasured) {
+        onMeasured(index, textHeight)
+      }
+    }
+  }, [maxWidth, onMeasured, index])
+
+  return (
+    <Text
+      ref={textRef}
+      font={font}
+      fontSize={fontSize}
+      letterSpacing={letterSpacing}
+      color={color}
+      anchorX='left'
+      anchorY='top'
+      position={[-maxWidth / 2, y, 0]}
+      scale={[scale, 1, 1]}
+      onSync={handleSync}
+    >
+      {text}
+    </Text>
+  )
+}
+
+// Text block component for scale-to-fit mode
+const ScaleToFitTextBlock = ({ lines, typography, colors, maxWidth, offsetY, blockIndex = 0 }) => {
+  const lineHeight = typography.fontSize * (typography.lineHeight + 0.2) // Add extra spacing
+  // Offset even blocks horizontally
+  const horizontalOffset = blockIndex % 2 === 1 ? maxWidth * 0.15 : 0
+
+  return (
+    <group position={[horizontalOffset, offsetY, 0]}>
+      {lines.map((line, index) => (
+        <JustifiedLine
+          key={index}
+          index={index}
+          text={line}
+          font={typography.font}
+          fontSize={typography.fontSize}
+          letterSpacing={typography.letterSpacing}
+          color={colors.text}
+          maxWidth={maxWidth}
+          y={-index * lineHeight}
+        />
+      ))}
+    </group>
+  )
+}
+
+// ============================================
+// AUTO-WRAP MODE COMPONENT
+// ============================================
+
+const AutoWrapTextBlock = ({ text, typography, colors, maxWidth, offsetY, onMeasured, blockIndex }) => {
+  const handleSync = useCallback((troika) => {
+    if (troika.textRenderInfo && onMeasured) {
+      const height = troika.textRenderInfo.blockBounds[3] - troika.textRenderInfo.blockBounds[1]
+      onMeasured(blockIndex, Math.max(height, 0.5))
+    }
+  }, [onMeasured, blockIndex])
+
+  return (
+    <Text
+      font={typography.font}
+      fontSize={typography.fontSize}
+      letterSpacing={typography.letterSpacing}
+      lineHeight={typography.lineHeight}
+      color={colors.text}
+      anchorX='left'
+      anchorY='top'
+      position={[-maxWidth / 2, offsetY, 0]}
+      maxWidth={maxWidth}
+      textAlign='justify'
+      overflowWrap='break-word'
+      onSync={handleSync}
+    >
+      {text.toUpperCase()}
+    </Text>
+  )
+}
+
+// ============================================
+// MAIN POSTER TEXT COMPONENT
+// ============================================
+
 const PosterText = () => {
   const { text, typography, colors, aspectRatio, animation } = usePosterStore()
   const groupRef = useRef()
-  const [textHeight, setTextHeight] = useState(1)
+  const [blockHeight, setBlockHeight] = useState(1)
 
   // Visible height based on camera setup (fov=40, z=6)
   const visibleHeight = 4.37
@@ -23,66 +124,92 @@ const PosterText = () => {
     }
   }, [aspectRatio])
 
-  // Measure text height when it syncs
-  const handleSync = useCallback((troika) => {
-    if (troika.textRenderInfo) {
-      const height = troika.textRenderInfo.blockBounds[3] - troika.textRenderInfo.blockBounds[1]
-      setTextHeight(Math.max(height, 0.5))
-    }
-  }, [])
+  // Split text into lines for scale-to-fit mode
+  const lines = useMemo(() => {
+    const upperText = text.toUpperCase()
+    const splitLines = upperText.split('\n').filter(line => line.trim().length > 0)
+    return splitLines.length > 0 ? splitLines : [upperText]
+  }, [text])
 
-  // Gap between repeated text blocks
-  const gap = visibleHeight * 0.3
-  // Total loop distance (text height + gap)
-  const loopDistance = textHeight + gap
+  // Calculate block height for scale-to-fit
+  const calculatedBlockHeight = useMemo(() => {
+    const lineHeight = typography.fontSize * (typography.lineHeight + 0.2)
+    return lines.length * lineHeight
+  }, [lines.length, typography.fontSize, typography.lineHeight])
 
-  // Animation: scroll from top to bottom, looping seamlessly
+  // Use calculated height for scale-to-fit, measured for auto-wrap
+  const isScaleToFit = typography.textMode === 'scale-to-fit'
+  const effectiveBlockHeight = isScaleToFit ? calculatedBlockHeight : blockHeight
+
+  // Gap between repeated text blocks - use blockGap multiplier from animation settings
+  const lineHeightValue = typography.fontSize * (typography.lineHeight + 0.2)
+  const gap = lineHeightValue * (animation.blockGap ?? 1.0)
+  // Total loop distance
+  const loopDistance = effectiveBlockHeight + gap
+
+  // Animation offset
+  const [animOffset, setAnimOffset] = useState(0)
+
   useFrame((state) => {
     if (groupRef.current && animation.isPlaying) {
       const time = state.clock.elapsedTime
       const speed = animation.speed
-
-      // Calculate offset using modulo for seamless loop
-      // As offset increases, text moves DOWN (y decreases)
       const offset = (time * speed) % loopDistance
-
-      // Move group down by offset amount
-      groupRef.current.position.y = -offset
+      setAnimOffset(offset)
     }
   })
 
-  // Create multiple copies stacked ABOVE each other for seamless scroll
-  // As the group moves down, upper copies come into view from top
-  const copies = useMemo(() => {
-    // Need enough copies to cover visible area + one extra for seamless loop
-    const numCopies = Math.ceil(visibleHeight / loopDistance) + 3
-    return Array.from({ length: numCopies }, (_, i) => i)
+  // Calculate how many copies we need above and below
+  const numCopies = useMemo(() => {
+    // Need enough to cover visible area plus some extra for smooth scrolling
+    return Math.ceil(visibleHeight / loopDistance) + 2
   }, [visibleHeight, loopDistance])
 
-  // Start position: first copy at top of screen
-  const startY = visibleHeight / 2
+  const handleBlockMeasured = useCallback((index, height) => {
+    if (index === 0) {
+      setBlockHeight(Math.max(height, 0.5))
+    }
+  }, [])
+
+  // Position blocks: center the main one, repeat above and below
+  const blockPositions = useMemo(() => {
+    const positions = []
+    const halfVisible = visibleHeight / 2
+    const startOffset = halfVisible // Start from top
+
+    for (let i = 0; i < numCopies; i++) {
+      positions.push(startOffset - i * loopDistance)
+    }
+    return positions
+  }, [numCopies, loopDistance, visibleHeight])
 
   return (
     <group ref={groupRef}>
-      {copies.map((i) => (
-        <Text
-          key={i}
-          font='/fonts/Geist-Regular.ttf'
-          fontSize={typography.fontSize}
-          letterSpacing={typography.letterSpacing}
-          lineHeight={typography.lineHeight}
-          color={colors.text}
-          anchorX='center'
-          anchorY='top'
-          position={[0, startY - i * loopDistance, 0]}
-          maxWidth={maxWidth}
-          textAlign='center'
-          overflowWrap='break-word'
-          onSync={i === 0 ? handleSync : undefined}
-        >
-          {text}
-        </Text>
-      ))}
+      {blockPositions.map((baseY, i) => {
+        const y = baseY - animOffset
+        return isScaleToFit ? (
+          <ScaleToFitTextBlock
+            key={i}
+            blockIndex={i}
+            lines={lines}
+            typography={typography}
+            colors={colors}
+            maxWidth={maxWidth}
+            offsetY={y}
+          />
+        ) : (
+          <AutoWrapTextBlock
+            key={i}
+            blockIndex={i}
+            text={text}
+            typography={typography}
+            colors={colors}
+            maxWidth={maxWidth}
+            offsetY={y}
+            onMeasured={i === 0 ? handleBlockMeasured : undefined}
+          />
+        )
+      })}
     </group>
   )
 }

@@ -2,7 +2,7 @@ import { create } from 'zustand'
 
 const usePosterStore = create((set, get) => ({
   // Text content - single string, split by newlines
-  text: 'This is the default text',
+  text: 'Maison Margiela\nSpring 2024 COUTURE',
 
   // Poster settings
   aspectRatio: '9:16', // 9:16 (vertical 16:9) or 3:4 (vertical 4:3)
@@ -15,9 +15,11 @@ const usePosterStore = create((set, get) => ({
 
   // Typography settings
   typography: {
+    font: '/fonts/PPEditorialNew-Thin.otf',
     fontSize: 0.4,
     letterSpacing: -0.05,
-    lineHeight: 1.0,
+    lineHeight: 0.8,
+    textMode: 'scale-to-fit', // 'scale-to-fit' or 'auto-wrap'
   },
 
   // Colors
@@ -39,23 +41,25 @@ const usePosterStore = create((set, get) => ({
   animation: {
     speed: 2.0,
     isPlaying: false,
+    blockGap: 0.0, // Multiplier for gap between repeated blocks
   },
 
   // Blob Effect
   blobEffect: {
-    enabled: false,
+    enabled: true,
     threshold: 0.0,
-    strokeWidth: 0.04,
+    strokeWidth: 0.01,
     noiseScale: 0.5,
-    warpIntensity: 0.7,
-    speed: 0.0,
+    warpIntensity: 1.0,
+    seed: 0.0,
     transition: 0.53,
     imageTexture: null,
-    imageUrl: null,
+    imageUrl: '/img/presets/Maison%20Margiela--Spring%202024%20COUTURE.png',
     imageExposure: 0.2,
     imageContrast: 1.5,
     pixelSize: 0.78,
     mouseControl: true,
+    transitionPaused: false,
   },
 
   // Export
@@ -132,7 +136,7 @@ const usePosterStore = create((set, get) => ({
 
   resetToDefaults: () =>
     set({
-      text: 'This is the default text',
+      text: 'Maison Margiela\nSpring 2024 COUTURE',
       aspectRatio: '9:16',
       typography: { fontSize: 0.4, letterSpacing: -0.05, lineHeight: 1.0 },
       colors: { text: '#000000', background: '#ffffff', accent: '#ff6b6b' },

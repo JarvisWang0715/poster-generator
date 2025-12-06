@@ -8,6 +8,26 @@ import { Slider } from '@/components/ui/slider'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
+
+const TEXT_MODES = [
+  { value: 'scale-to-fit', label: 'Scale to Fit (Full Width)' },
+  { value: 'auto-wrap', label: 'Auto Wrap (Justify)' },
+]
+
+const FONTS = [
+  { value: '/fonts/PPEditorialNew-Thin.otf', label: 'Editorial New Thin' },
+  { value: '/fonts/PPEditorialNew-ThinItalic.otf', label: 'Editorial New Thin Italic' },
+  { value: '/fonts/PPEditorialNew-Ultralight.otf', label: 'Editorial New Ultralight' },
+  { value: '/fonts/PPEditorialNew-UltralightItalic.otf', label: 'Editorial New Ultralight Italic' },
+  { value: '/fonts/PPEditorialOld-Thin.otf', label: 'Editorial Old Thin' },
+  { value: '/fonts/PPEditorialOld-ThinItalic.otf', label: 'Editorial Old Thin Italic' },
+  { value: '/fonts/PPEditorialOld-Ultralight.otf', label: 'Editorial Old Ultralight' },
+  { value: '/fonts/PPEditorialOld-UltralightItalic.otf', label: 'Editorial Old Ultralight Italic' },
+  { value: '/fonts/Geist-Regular.ttf', label: 'Geist Regular' },
+  { value: '/fonts/Geist-Bold.ttf', label: 'Geist Bold' },
+]
 
 const AspectRatioControls = () => {
   const { aspectRatio, setAspectRatio } = usePosterStore()
@@ -94,13 +114,23 @@ const AnimationControls = () => {
           step={0.1}
         />
       </div>
-      <Button
-        variant={animation.isPlaying ? 'default' : 'outline'}
-        onClick={togglePlayback}
-        className='w-full'
-      >
-        {animation.isPlaying ? 'Pause' : 'Play'}
-      </Button>
+      <div className='space-y-3'>
+        <div className='flex items-center justify-between'>
+          <Label>Block Gap</Label>
+          <span className='text-sm text-muted-foreground'>{animation.blockGap.toFixed(1)}</span>
+        </div>
+        <Slider
+          value={[animation.blockGap]}
+          onValueChange={([value]) => setAnimation({ blockGap: value })}
+          min={0}
+          max={3}
+          step={0.1}
+        />
+      </div>
+      <div className='flex items-center justify-between'>
+        <Label>Playing</Label>
+        <Switch checked={animation.isPlaying} onCheckedChange={togglePlayback} />
+      </div>
     </div>
   )
 }
@@ -110,6 +140,36 @@ const TypographyControls = () => {
 
   return (
     <div className='space-y-5'>
+      <div className='space-y-3'>
+        <Label>Text Mode</Label>
+        <Select value={typography.textMode} onValueChange={(value) => setTypography({ textMode: value })}>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {TEXT_MODES.map((mode) => (
+              <SelectItem key={mode.value} value={mode.value}>
+                {mode.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className='space-y-3'>
+        <Label>Font</Label>
+        <Select value={typography.font} onValueChange={(value) => setTypography({ font: value })}>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {FONTS.map((font) => (
+              <SelectItem key={font.value} value={font.value}>
+                {font.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
       <div className='space-y-3'>
         <div className='flex items-center justify-between'>
           <Label>Font Size</Label>
@@ -199,13 +259,10 @@ const BlobEffectControls = () => {
 
   return (
     <div className='space-y-4'>
-      <Button
-        variant={blobEffect.enabled ? 'default' : 'outline'}
-        onClick={toggleBlobEffect}
-        className='w-full'
-      >
-        {blobEffect.enabled ? 'Disable Effect' : 'Enable Effect'}
-      </Button>
+      <div className='flex items-center justify-between'>
+        <Label>Enable Effect</Label>
+        <Switch checked={blobEffect.enabled} onCheckedChange={toggleBlobEffect} />
+      </div>
 
       {blobEffect.enabled && (
         <>
@@ -225,45 +282,6 @@ const BlobEffectControls = () => {
                   alt='Uploaded'
                   className='h-20 w-full rounded object-cover'
                 />
-                <div className='space-y-3'>
-                  <div className='flex items-center justify-between'>
-                    <Label>Exposure</Label>
-                    <span className='text-sm text-muted-foreground'>{blobEffect.imageExposure.toFixed(1)}</span>
-                  </div>
-                  <Slider
-                    value={[blobEffect.imageExposure]}
-                    onValueChange={([value]) => setBlobEffect({ imageExposure: value })}
-                    min={-2}
-                    max={2}
-                    step={0.1}
-                  />
-                </div>
-                <div className='space-y-3'>
-                  <div className='flex items-center justify-between'>
-                    <Label>Contrast</Label>
-                    <span className='text-sm text-muted-foreground'>{blobEffect.imageContrast.toFixed(1)}</span>
-                  </div>
-                  <Slider
-                    value={[blobEffect.imageContrast]}
-                    onValueChange={([value]) => setBlobEffect({ imageContrast: value })}
-                    min={0.5}
-                    max={3}
-                    step={0.1}
-                  />
-                </div>
-                <div className='space-y-3'>
-                  <div className='flex items-center justify-between'>
-                    <Label>Pixel Size</Label>
-                    <span className='text-sm text-muted-foreground'>{blobEffect.pixelSize.toFixed(2)}</span>
-                  </div>
-                  <Slider
-                    value={[blobEffect.pixelSize]}
-                    onValueChange={([value]) => setBlobEffect({ pixelSize: value })}
-                    min={0.05}
-                    max={1}
-                    step={0.01}
-                  />
-                </div>
                 <Button variant='outline' size='sm' onClick={clearImage} className='w-full'>
                   Clear Image
                 </Button>
@@ -273,26 +291,29 @@ const BlobEffectControls = () => {
 
           <div className='space-y-3'>
             <div className='flex items-center justify-between'>
-              <Label>Transition</Label>
-              <Button
-                variant={blobEffect.mouseControl ? 'default' : 'outline'}
-                size='sm'
-                onClick={() => setBlobEffect({ mouseControl: !blobEffect.mouseControl })}
-              >
-                {blobEffect.mouseControl ? 'Mouse' : 'Manual'}
-              </Button>
+              <Label>Mouse Control</Label>
+              <Switch
+                checked={blobEffect.mouseControl}
+                onCheckedChange={(checked) => setBlobEffect({ mouseControl: checked })}
+              />
             </div>
             {!blobEffect.mouseControl && (
-              <Slider
-                value={[blobEffect.transition]}
-                onValueChange={([value]) => setBlobEffect({ transition: value })}
-                min={0}
-                max={1}
-                step={0.01}
-              />
+              <>
+                <div className='flex items-center justify-between'>
+                  <Label>Transition</Label>
+                  <span className='text-sm text-muted-foreground'>{blobEffect.transition.toFixed(2)}</span>
+                </div>
+                <Slider
+                  value={[blobEffect.transition]}
+                  onValueChange={([value]) => setBlobEffect({ transition: value })}
+                  min={0}
+                  max={1}
+                  step={0.01}
+                />
+              </>
             )}
             {blobEffect.mouseControl && (
-              <p className='text-xs text-muted-foreground'>Move mouse up/down to control transition</p>
+              <p className='text-xs text-muted-foreground'>Move mouse up/down to control. Click to pause.</p>
             )}
           </div>
 
@@ -340,14 +361,14 @@ const BlobEffectControls = () => {
 
           <div className='space-y-3'>
             <div className='flex items-center justify-between'>
-              <Label>Animation Speed</Label>
-              <span className='text-sm text-muted-foreground'>{blobEffect.speed.toFixed(1)}</span>
+              <Label>Seed</Label>
+              <span className='text-sm text-muted-foreground'>{blobEffect.seed.toFixed(1)}</span>
             </div>
             <Slider
-              value={[blobEffect.speed]}
-              onValueChange={([value]) => setBlobEffect({ speed: value })}
+              value={[blobEffect.seed]}
+              onValueChange={([value]) => setBlobEffect({ seed: value })}
               min={0}
-              max={2}
+              max={100}
               step={0.1}
             />
           </div>
@@ -368,22 +389,8 @@ const ControlPanel = () => {
       <div className='flex-1 overflow-y-auto p-4'>
         <div className='space-y-6'>
           <section>
-            <h3 className='mb-3 text-sm font-medium text-muted-foreground'>Aspect Ratio</h3>
-            <AspectRatioControls />
-          </section>
-
-          <Separator />
-
-          <section>
             <h3 className='mb-3 text-sm font-medium text-muted-foreground'>Text</h3>
             <TextControls />
-          </section>
-
-          <Separator />
-
-          <section>
-            <h3 className='mb-3 text-sm font-medium text-muted-foreground'>Colors</h3>
-            <ColorControls />
           </section>
 
           <Separator />
