@@ -22,8 +22,8 @@ const usePosterStore = create((set, get) => ({
 
   // Colors
   colors: {
-    text: '#ffffff',
-    background: '#0a0a0a',
+    text: '#000000',
+    background: '#ffffff',
     accent: '#ff6b6b',
   },
 
@@ -43,13 +43,13 @@ const usePosterStore = create((set, get) => ({
 
   // Blob Effect
   blobEffect: {
-    enabled: false,
+    enabled: true,
     threshold: 0.0,
-    strokeWidth: 0.08,
-    noiseScale: 1.2,
-    warpIntensity: 2.5,
-    speed: 0.3,
-    transition: 0.5,
+    strokeWidth: 0.04,
+    noiseScale: 1.0,
+    warpIntensity: 1.3,
+    speed: 1.3,
+    transition: 0.74,
     imageTexture: null,
     imageUrl: null,
   },
@@ -131,7 +131,7 @@ const usePosterStore = create((set, get) => ({
       text: 'This is the default text',
       aspectRatio: '9:16',
       typography: { fontSize: 0.4, letterSpacing: -0.05, lineHeight: 1.0 },
-      colors: { text: '#ffffff', background: '#0a0a0a', accent: '#ff6b6b' },
+      colors: { text: '#000000', background: '#ffffff', accent: '#ff6b6b' },
       layout: { alignment: 'center', position: { x: 0, y: 0, z: 0 }, rotation: { x: 0, y: 0, z: 0 }, scale: 1 },
     }),
 }))

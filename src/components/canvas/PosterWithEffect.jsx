@@ -106,15 +106,23 @@ const fragmentShader = `
     // Hard edge mask - blob areas vs text areas
     float mask = step(adjustedThreshold, n);
 
-    // Stroke: detect edges using gradient
-    float eps = 0.01;
-    float nx = warpedNoise(p + vec2(eps, 0.0), uTime);
-    float ny = warpedNoise(p + vec2(0.0, eps), uTime);
-    float edge = length(vec2(nx - n, ny - n)) / eps;
+    // Burnt edge effect - use high frequency noise at the boundary
+    float edgeDist = abs(n - adjustedThreshold);
 
-    // Stroke only at the transition boundary
-    float nearEdge = 1.0 - smoothstep(0.0, uStrokeWidth * 2.0, abs(n - adjustedThreshold));
-    float stroke = nearEdge * smoothstep(0.5, 2.0, edge);
+    // Add high-freq noise for burnt/rough edge texture
+    float burntNoise = snoise(p * 15.0 + uTime * 0.5) * 0.5 + 0.5;
+    float burntNoise2 = snoise(p * 30.0 - uTime * 0.3) * 0.5 + 0.5;
+    float combinedBurnt = burntNoise * burntNoise2;
+
+    // Stroke width varies based on burnt noise
+    float strokeEdge = uStrokeWidth * (0.5 + combinedBurnt * 1.5);
+
+    // Sharp burnt stroke at edge
+    float inStroke = step(edgeDist, strokeEdge);
+    float burntIntensity = inStroke * (1.0 - smoothstep(0.0, strokeEdge, edgeDist));
+
+    // Add texture variation to the stroke
+    burntIntensity *= (0.7 + combinedBurnt * 0.3);
 
     // Sample textures
     vec4 posterColor = texture2D(uPosterTexture, uv);
@@ -123,8 +131,8 @@ const fragmentShader = `
     // Blend: mask=1 shows mask layer (white/image), mask=0 shows poster (text)
     vec3 color = mix(posterColor.rgb, maskLayerColor.rgb, mask);
 
-    // Apply stroke on top
-    color = mix(color, uStrokeColor, stroke * 0.95);
+    // Apply burnt stroke on top
+    color = mix(color, uStrokeColor, burntIntensity * 0.95);
 
     gl_FragColor = vec4(color, 1.0);
   }
@@ -132,15 +140,20 @@ const fragmentShader = `
 
 const PosterWithEffect = () => {
   const meshRef = useRef()
-  const portalCameraRef = useRef()
   const { viewport, size, gl, camera } = useThree()
-  const { blobEffect, colors } = usePosterStore()
+  const { blobEffect, colors, aspectRatio } = usePosterStore()
 
   // Create a scene for the poster
   const portalScene = useMemo(() => new THREE.Scene(), [])
 
-  // Create render target for poster
-  const posterTarget = useFBO(size.width * 2, size.height * 2, {
+  // Create a camera that matches the poster aspect ratio
+  const portalCamera = useMemo(() => {
+    const cam = camera.clone()
+    return cam
+  }, [camera])
+
+  // Create render target for poster - use viewport dimensions for correct aspect
+  const posterTarget = useFBO(Math.floor(viewport.width * 200), Math.floor(viewport.height * 200), {
     minFilter: THREE.LinearFilter,
     magFilter: THREE.LinearFilter,
     format: THREE.RGBAFormat,
@@ -152,21 +165,26 @@ const PosterWithEffect = () => {
     uPosterTexture: { value: null },
     uImageTexture: { value: null },
     uThreshold: { value: 0.0 },
-    uStrokeWidth: { value: 0.08 },
-    uNoiseScale: { value: 1.2 },
-    uWarpIntensity: { value: 2.5 },
+    uStrokeWidth: { value: 0.04 },
+    uNoiseScale: { value: 1.0 },
+    uWarpIntensity: { value: 1.3 },
     uHasImage: { value: false },
     uStrokeColor: { value: new THREE.Color('#000000') },
     uMaskColor: { value: new THREE.Color('#ffffff') },
-    uTransition: { value: 0.5 },
+    uTransition: { value: 0.74 },
   }), [])
 
   useFrame((state, delta) => {
     if (!blobEffect.enabled) return
 
+    // Update portal camera to match main camera
+    portalCamera.position.copy(camera.position)
+    portalCamera.rotation.copy(camera.rotation)
+    portalCamera.updateProjectionMatrix()
+
     // Render poster to texture
     gl.setRenderTarget(posterTarget)
-    gl.render(portalScene, camera)
+    gl.render(portalScene, portalCamera)
     gl.setRenderTarget(null)
 
     // Update shader uniforms
