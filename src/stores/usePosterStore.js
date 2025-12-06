@@ -38,20 +38,24 @@ const usePosterStore = create((set, get) => ({
   // Animation
   animation: {
     speed: 2.0,
-    isPlaying: true,
+    isPlaying: false,
   },
 
   // Blob Effect
   blobEffect: {
-    enabled: true,
+    enabled: false,
     threshold: 0.0,
     strokeWidth: 0.04,
-    noiseScale: 1.0,
-    warpIntensity: 1.3,
-    speed: 1.3,
-    transition: 0.74,
+    noiseScale: 0.5,
+    warpIntensity: 0.7,
+    speed: 0.0,
+    transition: 0.53,
     imageTexture: null,
     imageUrl: null,
+    imageExposure: 0.2,
+    imageContrast: 1.5,
+    pixelSize: 0.78,
+    mouseControl: true,
   },
 
   // Export

@@ -219,12 +219,51 @@ const BlobEffectControls = () => {
               className='w-full text-sm file:mr-2 file:rounded file:border-0 file:bg-primary file:px-2 file:py-1 file:text-xs file:text-primary-foreground'
             />
             {blobEffect.imageUrl && (
-              <div className='space-y-2'>
+              <div className='space-y-4'>
                 <img
                   src={blobEffect.imageUrl}
                   alt='Uploaded'
                   className='h-20 w-full rounded object-cover'
                 />
+                <div className='space-y-3'>
+                  <div className='flex items-center justify-between'>
+                    <Label>Exposure</Label>
+                    <span className='text-sm text-muted-foreground'>{blobEffect.imageExposure.toFixed(1)}</span>
+                  </div>
+                  <Slider
+                    value={[blobEffect.imageExposure]}
+                    onValueChange={([value]) => setBlobEffect({ imageExposure: value })}
+                    min={-2}
+                    max={2}
+                    step={0.1}
+                  />
+                </div>
+                <div className='space-y-3'>
+                  <div className='flex items-center justify-between'>
+                    <Label>Contrast</Label>
+                    <span className='text-sm text-muted-foreground'>{blobEffect.imageContrast.toFixed(1)}</span>
+                  </div>
+                  <Slider
+                    value={[blobEffect.imageContrast]}
+                    onValueChange={([value]) => setBlobEffect({ imageContrast: value })}
+                    min={0.5}
+                    max={3}
+                    step={0.1}
+                  />
+                </div>
+                <div className='space-y-3'>
+                  <div className='flex items-center justify-between'>
+                    <Label>Pixel Size</Label>
+                    <span className='text-sm text-muted-foreground'>{blobEffect.pixelSize.toFixed(2)}</span>
+                  </div>
+                  <Slider
+                    value={[blobEffect.pixelSize]}
+                    onValueChange={([value]) => setBlobEffect({ pixelSize: value })}
+                    min={0.05}
+                    max={1}
+                    step={0.01}
+                  />
+                </div>
                 <Button variant='outline' size='sm' onClick={clearImage} className='w-full'>
                   Clear Image
                 </Button>
@@ -235,15 +274,26 @@ const BlobEffectControls = () => {
           <div className='space-y-3'>
             <div className='flex items-center justify-between'>
               <Label>Transition</Label>
-              <span className='text-sm text-muted-foreground'>{blobEffect.transition.toFixed(2)}</span>
+              <Button
+                variant={blobEffect.mouseControl ? 'default' : 'outline'}
+                size='sm'
+                onClick={() => setBlobEffect({ mouseControl: !blobEffect.mouseControl })}
+              >
+                {blobEffect.mouseControl ? 'Mouse' : 'Manual'}
+              </Button>
             </div>
-            <Slider
-              value={[blobEffect.transition]}
-              onValueChange={([value]) => setBlobEffect({ transition: value })}
-              min={0}
-              max={1}
-              step={0.01}
-            />
+            {!blobEffect.mouseControl && (
+              <Slider
+                value={[blobEffect.transition]}
+                onValueChange={([value]) => setBlobEffect({ transition: value })}
+                min={0}
+                max={1}
+                step={0.01}
+              />
+            )}
+            {blobEffect.mouseControl && (
+              <p className='text-xs text-muted-foreground'>Move mouse up/down to control transition</p>
+            )}
           </div>
 
           <div className='space-y-3'>
