@@ -137,15 +137,23 @@ const RightSideButtons = ({ onExport, onRandomize }) => {
     >
       <button
         onClick={onExport}
-        className='flex h-12 w-12 items-center justify-center rounded-full border border-neutral-200 bg-white shadow-sm transition-colors hover:bg-neutral-50'
-        style={{ color: 'rgba(0, 0, 0, 0.8)' }}
+        className='flex h-12 w-12 items-center justify-center rounded-full border border-neutral-200 bg-white transition-colors hover:bg-neutral-50'
+        style={{
+          color: 'rgba(0, 0, 0, 0.8)',
+          boxShadow:
+            '0 20px 6px 0 rgba(0, 0, 0, 0.00), 0 13px 5px 0 rgba(0, 0, 0, 0.01), 0 7px 4px 0 rgba(0, 0, 0, 0.03), 0 3px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+        }}
       >
         <Download className='h-5 w-5' />
       </button>
       <button
         onClick={onRandomize}
-        className='flex h-12 w-12 items-center justify-center rounded-full border border-neutral-200 bg-white shadow-sm transition-colors hover:bg-neutral-50'
-        style={{ color: 'rgba(0, 0, 0, 0.8)' }}
+        className='flex h-12 w-12 items-center justify-center rounded-full border border-neutral-200 bg-white transition-colors hover:bg-neutral-50'
+        style={{
+          color: 'rgba(0, 0, 0, 0.8)',
+          boxShadow:
+            '0 20px 6px 0 rgba(0, 0, 0, 0.00), 0 13px 5px 0 rgba(0, 0, 0, 0.01), 0 7px 4px 0 rgba(0, 0, 0, 0.03), 0 3px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+        }}
       >
         <Dices className='h-5 w-5' />
       </button>

@@ -57,17 +57,20 @@ const useCanvasExport = () => {
       const scissorEnabled = gl.getScissorTest()
       gl.setScissorTest(false)
 
+      // Calculate the correct aspect ratio for export (should match export dimensions)
+      const exportAspect = exportWidth / exportHeight
+
       // If we have portal refs, re-render the portal scene at export dimensions
       if (portalRefs.scene && portalRefs.camera && posterShaderMesh) {
-        // Create camera with stored properties from preview (same FOV and position)
-        // but use the SAME aspect ratio to maintain text scale
+        // Create camera with FOV=40 and position z=6 (matching Common component)
+        // Use export aspect ratio to match the render target dimensions
         const exportPortalCamera = new THREE.PerspectiveCamera(
-          cameraProps.fov,
-          cameraProps.aspect, // Use preview aspect to maintain scale
+          40, // Fixed FOV matching Common component
+          exportAspect,
           0.1,
           1000
         )
-        exportPortalCamera.position.set(...cameraProps.position)
+        exportPortalCamera.position.set(0, 0, 6) // Fixed position matching Common component
 
         gl.setRenderTarget(exportPosterFBO)
         gl.setViewport(0, 0, exportWidth, exportHeight)
@@ -87,14 +90,14 @@ const useCanvasExport = () => {
       gl.setPixelRatio(1)
       gl.setSize(exportWidth, exportHeight)
 
-      // Create export camera with stored properties (same FOV, position, aspect)
+      // Create export camera with fixed properties (FOV=40, z=6, export aspect)
       const exportCamera = new THREE.PerspectiveCamera(
-        cameraProps.fov,
-        cameraProps.aspect,
+        40,
+        exportAspect,
         0.1,
         1000
       )
-      exportCamera.position.set(...cameraProps.position)
+      exportCamera.position.set(0, 0, 6)
 
       // Render directly to canvas
       gl.setViewport(0, 0, exportWidth, exportHeight)
