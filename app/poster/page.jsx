@@ -1,11 +1,157 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import { Suspense, useRef, useEffect, useState } from 'react'
+import { Suspense, useRef, useEffect, useState, useCallback } from 'react'
 import * as THREE from 'three'
 import usePosterStore from '@/stores/usePosterStore'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
-import { ImageUp, SlidersHorizontal } from 'lucide-react'
+import { ImageUp, SlidersHorizontal, Download, Dices } from 'lucide-react'
+
+// Tooltip component matching Figma design
+const PresetTooltip = ({ text, visible }) => {
+  if (!visible || !text) return null
+
+  return (
+    <div
+      className='pointer-events-none absolute left-full top-1/2 z-50 ml-3 -translate-y-1/2'
+      style={{
+        opacity: visible ? 1 : 0,
+        transition: 'opacity 200ms ease',
+      }}
+    >
+      <div
+        style={{
+          backgroundColor: 'rgba(27, 27, 27, 1)',
+          padding: '8px 12px',
+          borderRadius: '8px',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          whiteSpace: 'pre',
+        }}
+      >
+        <span
+          style={{
+            color: 'rgba(255, 255, 255, 1)',
+            fontFamily: 'Geist, sans-serif',
+            fontSize: '16px',
+            fontWeight: 400,
+            lineHeight: '20px',
+            textAlign: 'left',
+          }}
+        >
+          {text}
+        </span>
+      </div>
+    </div>
+  )
+}
+
+// Preset button with tooltip
+const PresetButton = ({ preset, index, onClick }) => {
+  const [isHovered, setIsHovered] = useState(false)
+  const [isVisible, setIsVisible] = useState(false)
+
+  useEffect(() => {
+    // Staggered animation delay based on index
+    const timer = setTimeout(() => {
+      setIsVisible(true)
+    }, 100 + index * 80)
+    return () => clearTimeout(timer)
+  }, [index])
+
+  return (
+    <div
+      className='relative'
+      style={{
+        opacity: isVisible ? 1 : 0,
+        transform: isVisible ? 'translateX(0)' : 'translateX(-20px)',
+        transition: 'opacity 0.3s cubic-bezier(.215, .61, .355, 1), transform 0.3s cubic-bezier(.215, .61, .355, 1)',
+      }}
+    >
+      <button
+        onClick={onClick}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        className='h-20 w-20 overflow-hidden rounded-2xl border border-neutral-200 bg-white transition-transform hover:scale-105'
+        style={{
+          boxShadow:
+            '0 20px 6px 0 rgba(0, 0, 0, 0.00), 0 13px 5px 0 rgba(0, 0, 0, 0.01), 0 7px 4px 0 rgba(0, 0, 0, 0.03), 0 3px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+        }}
+      >
+        <img src={preset.url} alt={`Preset ${index + 1}`} className='h-full w-full object-cover' />
+      </button>
+      <PresetTooltip text={preset.text} visible={isHovered} />
+    </div>
+  )
+}
+
+// Upload button with slide-in animation
+const UploadButton = ({ presetCount, onClick }) => {
+  const [isVisible, setIsVisible] = useState(false)
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsVisible(true)
+    }, 100 + presetCount * 80)
+    return () => clearTimeout(timer)
+  }, [presetCount])
+
+  return (
+    <div
+      style={{
+        opacity: isVisible ? 1 : 0,
+        transform: isVisible ? 'translateX(0)' : 'translateX(-20px)',
+        transition: 'opacity 0.3s cubic-bezier(.215, .61, .355, 1), transform 0.3s cubic-bezier(.215, .61, .355, 1)',
+      }}
+    >
+      <button
+        onClick={onClick}
+        className='flex h-20 w-20 items-center justify-center rounded-2xl border-dashed bg-transparent transition-colors'
+        style={{ borderWidth: '1px', borderColor: 'rgba(0, 0, 0, 0.2)', color: 'rgba(0, 0, 0, 0.8)' }}
+      >
+        <ImageUp className='h-6 w-6' />
+      </button>
+    </div>
+  )
+}
+
+// Right side buttons with fade-in animation
+const RightSideButtons = ({ onExport, onRandomize }) => {
+  const [isVisible, setIsVisible] = useState(false)
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsVisible(true)
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [])
+
+  return (
+    <div
+      className='fixed top-1/2 z-50 flex -translate-y-1/2 flex-col gap-2'
+      style={{
+        left: 'calc(50% + (100vh - 12rem) * 9 / 16 / 2 + 16px)',
+        opacity: isVisible ? 1 : 0,
+        transform: isVisible ? 'translateY(-50%) translateX(0)' : 'translateY(-50%) translateX(20px)',
+        transition: 'opacity 0.3s cubic-bezier(.215, .61, .355, 1), transform 0.3s cubic-bezier(.215, .61, .355, 1)',
+      }}
+    >
+      <button
+        onClick={onExport}
+        className='flex h-12 w-12 items-center justify-center rounded-full border border-neutral-200 bg-white shadow-sm transition-colors hover:bg-neutral-50'
+        style={{ color: 'rgba(0, 0, 0, 0.8)' }}
+      >
+        <Download className='h-5 w-5' />
+      </button>
+      <button
+        onClick={onRandomize}
+        className='flex h-12 w-12 items-center justify-center rounded-full border border-neutral-200 bg-white shadow-sm transition-colors hover:bg-neutral-50'
+        style={{ color: 'rgba(0, 0, 0, 0.8)' }}
+      >
+        <Dices className='h-5 w-5' />
+      </button>
+    </div>
+  )
+}
 
 const View = dynamic(() => import('@/components/canvas/View').then((mod) => mod.View), {
   ssr: false,
@@ -54,7 +200,7 @@ const PosterCanvas = () => {
 }
 
 const FloatingInputBar = () => {
-  const { text, setText, requestExport, setBlobEffect } = usePosterStore()
+  const { text, setText, requestExport, setBlobEffect, blobEffect } = usePosterStore()
   const fileInputRef = useRef(null)
   const textareaRef = useRef(null)
   const [presets, setPresets] = useState([])
@@ -103,6 +249,7 @@ const FloatingInputBar = () => {
       setBlobEffect({
         imageTexture: texture,
         imageUrl: url,
+        seed: Math.random() * 100,
       })
       if (presetText) {
         setText(presetText)
@@ -114,20 +261,19 @@ const FloatingInputBar = () => {
   return (
     <>
       {/* Left side - Stacked preset images and upload (center left with 24px padding) */}
-      <div className='fixed left-6 top-1/2 z-50 flex -translate-y-1/2 flex-col gap-4'>
+      <div className='fixed left-6 top-1/2 z-50 flex -translate-y-1/2 flex-col gap-2'>
         {/* Dynamic preset images */}
         {presets.map((preset, index) => (
-          <button
+          <PresetButton
             key={preset.url}
+            preset={preset}
+            index={index}
             onClick={() => loadPresetImage(preset.url, preset.text)}
-            className='h-20 w-20 overflow-hidden rounded-2xl border border-neutral-200 bg-white transition-transform hover:scale-105'
-            style={{ boxShadow: '0 20px 6px 0 rgba(0, 0, 0, 0.00), 0 13px 5px 0 rgba(0, 0, 0, 0.01), 0 7px 4px 0 rgba(0, 0, 0, 0.03), 0 3px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px 0 rgba(0, 0, 0, 0.05)' }}
-          >
-            <img src={preset.url} alt={`Preset ${index + 1}`} className='h-full w-full object-cover' />
-          </button>
+          />
         ))}
 
         {/* Upload button */}
+        <UploadButton presetCount={presets.length} fileInputRef={fileInputRef} onClick={() => fileInputRef.current?.click()} />
         <input
           ref={fileInputRef}
           type='file'
@@ -135,13 +281,6 @@ const FloatingInputBar = () => {
           onChange={handleImageUpload}
           className='hidden'
         />
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          className='flex h-20 w-20 items-center justify-center rounded-2xl border-dashed border-neutral-300 bg-transparent text-neutral-400 transition-colors hover:border-neutral-400 hover:text-neutral-500'
-          style={{ borderWidth: '0.5px' }}
-        >
-          <ImageUp className='h-6 w-6' />
-        </button>
       </div>
 
       {/* Bottom center - Input bar with settings inside */}
@@ -159,7 +298,10 @@ const FloatingInputBar = () => {
           {/* Settings button inside input */}
           <Sheet>
             <SheetTrigger asChild>
-              <button className='mr-3 mb-3 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-600'>
+              <button
+                className='mr-3 mb-3 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full transition-colors hover:bg-neutral-100'
+                style={{ color: 'rgba(0, 0, 0, 0.8)' }}
+              >
                 <SlidersHorizontal className='h-5 w-5' />
               </button>
             </SheetTrigger>
@@ -171,12 +313,47 @@ const FloatingInputBar = () => {
           </Sheet>
         </div>
       </div>
+
+      {/* Right side - Export and Randomize buttons (positioned next to canvas) */}
+      <RightSideButtons onExport={() => requestExport()} onRandomize={() => setBlobEffect({ seed: Math.random() * 100 })} />
     </>
+  )
+}
+
+// Toast notification component
+const Toast = ({ message, visible, onHide }) => {
+  useEffect(() => {
+    if (visible) {
+      const timer = setTimeout(() => {
+        onHide()
+      }, 4000)
+      return () => clearTimeout(timer)
+    }
+  }, [visible, onHide])
+
+  return (
+    <div
+      className='fixed bottom-32 left-1/2 z-50 -translate-x-1/2'
+      style={{
+        opacity: visible ? 1 : 0,
+        transform: visible ? 'translateX(-50%) translateY(0)' : 'translateX(-50%) translateY(10px)',
+        transition: 'opacity 0.3s ease, transform 0.3s ease',
+        pointerEvents: visible ? 'auto' : 'none',
+      }}
+    >
+      <div
+        className='rounded-full px-4 py-2 text-sm text-white'
+        style={{ backgroundColor: 'rgba(27, 27, 27, 0.9)' }}
+      >
+        {message}
+      </div>
+    </div>
   )
 }
 
 export default function PosterPage() {
   const { setBlobEffect } = usePosterStore()
+  const [showToast, setShowToast] = useState(true)
 
   useEffect(() => {
     // Randomize seed on page load
@@ -192,6 +369,13 @@ export default function PosterPage() {
 
       {/* Floating Input Bar */}
       <FloatingInputBar />
+
+      {/* Toast notification */}
+      <Toast
+        message='Click on canvas to toggle transition'
+        visible={showToast}
+        onHide={() => setShowToast(false)}
+      />
     </div>
   )
 }

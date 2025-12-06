@@ -2,12 +2,15 @@ import { NextResponse } from 'next/server'
 import fs from 'fs'
 import path from 'path'
 
-// Parse filename to extract text (use -- as newline separator)
+// Parse filename to extract text
+// Use -- for newlines, - for spaces
 function parsePresetFilename(filename) {
   // Remove extension
   const nameWithoutExt = filename.replace(/\.(png|jpg|jpeg|webp|gif)$/i, '')
-  // Replace -- with newlines
-  const text = nameWithoutExt.replace(/--/g, '\n')
+  // Replace -- with a placeholder, then - with space, then restore newlines
+  const text = nameWithoutExt
+    .replace(/--/g, '\n')
+    .replace(/-/g, ' ')
   return text
 }
 
@@ -28,7 +31,7 @@ export async function GET() {
       .filter(file => imageExtensions.some(ext => file.toLowerCase().endsWith(ext)))
       .sort() // Sort alphabetically
       .map(file => ({
-        url: `/img/presets/${encodeURIComponent(file)}`,
+        url: `/img/presets/${file}`,
         text: parsePresetFilename(file),
       }))
 

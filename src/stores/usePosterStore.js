@@ -15,7 +15,7 @@ const usePosterStore = create((set, get) => ({
 
   // Typography settings
   typography: {
-    font: '/fonts/PPEditorialNew-Thin.otf',
+    font: '/fonts/PPEditorialOld-Thin.otf',
     fontSize: 0.4,
     letterSpacing: -0.05,
     lineHeight: 0.8,
@@ -54,7 +54,7 @@ const usePosterStore = create((set, get) => ({
     seed: 0.0,
     transition: 0.53,
     imageTexture: null,
-    imageUrl: '/img/presets/Maison%20Margiela--Spring%202024%20COUTURE.png',
+    imageUrl: '/img/presets/Maison-Margiela--Spring-2024-COUTURE.png',
     imageExposure: 0.2,
     imageContrast: 1.5,
     pixelSize: 0.78,
@@ -68,6 +68,19 @@ const usePosterStore = create((set, get) => ({
     format: 'png',
     scale: 2,
     filename: 'kinetic-poster',
+  },
+
+  // Portal references for export (set by PosterWithEffect)
+  portalRefs: {
+    scene: null,
+    camera: null,
+  },
+
+  // Camera properties for export (updated each frame by PosterWithEffect)
+  cameraProps: {
+    fov: 40,
+    position: [0, 0, 6],
+    aspect: 9 / 16,
   },
 
   // Actions
@@ -133,6 +146,16 @@ const usePosterStore = create((set, get) => ({
     })),
 
   clearExportRequest: () => set({ exportRequested: false }),
+
+  setPortalRefs: (refs) =>
+    set((state) => ({
+      portalRefs: { ...state.portalRefs, ...refs },
+    })),
+
+  setCameraProps: (props) =>
+    set((state) => ({
+      cameraProps: { ...state.cameraProps, ...props },
+    })),
 
   resetToDefaults: () =>
     set({

@@ -167,7 +167,7 @@ const fragmentShader = `
 const PosterWithEffect = () => {
   const meshRef = useRef()
   const { viewport, size, gl, camera } = useThree()
-  const { blobEffect, colors, aspectRatio, setBlobEffect } = usePosterStore()
+  const { blobEffect, colors, aspectRatio, setBlobEffect, setPortalRefs, setCameraProps } = usePosterStore()
 
   // Handle click to pause/unpause transition
   const handleClick = () => {
@@ -197,6 +197,12 @@ const PosterWithEffect = () => {
     const cam = camera.clone()
     return cam
   }, [camera])
+
+  // Store portal refs for export
+  useEffect(() => {
+    setPortalRefs({ scene: portalScene, camera: portalCamera })
+    return () => setPortalRefs({ scene: null, camera: null })
+  }, [portalScene, portalCamera, setPortalRefs])
 
   // Create render target for poster - use viewport dimensions for correct aspect
   const posterTarget = useFBO(Math.floor(viewport.width * 200), Math.floor(viewport.height * 200), {
@@ -234,6 +240,13 @@ const PosterWithEffect = () => {
     portalCamera.near = camera.near
     portalCamera.far = camera.far
     portalCamera.updateProjectionMatrix()
+
+    // Store camera props for export
+    setCameraProps({
+      fov: camera.fov,
+      position: [camera.position.x, camera.position.y, camera.position.z],
+      aspect: camera.aspect,
+    })
 
     // Render poster to texture
     gl.setRenderTarget(posterTarget)
